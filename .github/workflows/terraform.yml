@@ -1,7 +1,9 @@
 name: "Terraform Workflow"
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      -dev
   workflow_call:
     inputs:
       environment:
