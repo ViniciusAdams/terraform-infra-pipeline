@@ -3,15 +3,15 @@ name: "Terraform Workflow"
 on:
   workflow_call:
     inputs:
-      enviroment:
+      environment:
         type: string
         required: true
       aws-assume-role-arn:
-        type: string 
+        type: string
         required: true
       aws-region:
         type: string
-        required: true  
+        required: true
       aws-statefile-s3-bucket:
         type: string
         required: true
@@ -41,7 +41,13 @@ jobs:
           role-to-assume: ${{ inputs.aws-assume-role-arn }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ inputs.aws-region }}
-          
+
+      - name: Read destroy configuration
+        id: read-destroy-config
+        run: |
+          DESTROY="$(jq -r '.${{ inputs.environment }}' ./infra/destroy_config.json)"
+          echo "destroy=$(echo $DESTROY)" >> $GITHUB_OUTPUT
+
       - name: Terraform Init
         run: |
           cd infra && terraform init \
@@ -52,6 +58,13 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate
+
+      - name: Terraform Destroy
+        if: steps.read-destroy-config.outputs.destroy == 'true'
+        id: terraform-destroy
+        run: cd infra &&
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }} &&
+          terraform destroy -var-file="./envs/${{ inputs.environment }}/terraform.tfvars" -auto-approve
 
       - name: Terraform Plan
         if: steps.read-destroy-config.outputs.destroy != 'true'
